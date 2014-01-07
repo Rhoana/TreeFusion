@@ -119,38 +119,45 @@ if __name__ == '__main__':
     # make each label unique
     for idx, seg in enumerate(segmentations):
         if idx > 0:
-            segmentations[idx] = offset_segmentation(seg, 1 + segmentations[idx - 1][0].max())
+            prev_tree = segmentations[idx - 1][1]
+            offset = max(prev_tree.values()) + 1
+            segmentations[idx] = offset_segmentation(seg, offset)
 
-    model = cplex.Cplex()
-
-    # Add segment variables, overlap constraints
-    for regions, tree in segmentations:
+    # build unified parent and area tables
+    num_regions = max(segmentations[-1][1].values()) + 1
+    all_areas = np.zeros(num_regions, np.int64)
+    all_parents = -1 * np.ones(num_regions, np.int64)
+    for regions, parents in segmentations:
         areacounter = ValueCountInt64()
         areacounter.add_values_32(regions.astype(np.int32).ravel())
         keys, areas = areacounter.get_counts()
-        order = np.argsort(keys)
-        keys = keys[order]
-        areas = areas[order]
-        assert keys[-1] - keys[0] == keys.size - 1
+        all_areas[keys] = areas
+        all_parents[parents.keys()] = parents.values()
 
-        # Create variables for the segments and links
-        num_segments = keys.size
-        model.variables.add(obj = segment_worth(areas),
-            lb = [0] * num_segments,
-            ub = [1] * num_segments,
-            types = ["B"] * num_segments)
+    for idx in range(num_regions):
+        if all_parents[idx] >= 0:
+            all_areas[all_parents[idx]] += all_areas[idx]segmentations
 
-        # Create overlap constraints
-        # first, find leaves
-        parents = set(tree.values())
-        leaves = [k for k in tree if k not in parents]
+    print "Num regions:", num_regions
 
-        for l in leaves:
-            excls = list(exclusions(tree, l))
+    model = cplex.Cplex()
+    model.variables.add(obj = segment_worth(all_areas),
+                        lb = [0] * num_segments,
+                        ub = [1] * num_segments,
+                        types = ["B"] * num_segments)
+
+    for idx in range(num_segments):
+        exclusions = [idx]
+        p = all_parents[idx]
+        while p != -1:
+            exclusions.append(p)
+            p = all_parents[p]
+        if len(exclusions) > 1:
             model.linear_constraints.add(lin_expr = [cplex.SparsePair(ind = [int(i) for i in excls],
                                                                       val = [1] * len(excls))],
                                          senses = "L",
                                          rhs = [1])
+    print "added exclusions"
 
     # Add slice-to-slice links and link constraints.
     links_up = defaultdict(list)
