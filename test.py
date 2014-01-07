@@ -136,25 +136,25 @@ if __name__ == '__main__':
 
     for idx in range(num_regions):
         if all_parents[idx] >= 0:
-            all_areas[all_parents[idx]] += all_areas[idx]segmentations
+            all_areas[all_parents[idx]] += all_areas[idx]
 
     print "Num regions:", num_regions
 
     model = cplex.Cplex()
     model.variables.add(obj = segment_worth(all_areas),
-                        lb = [0] * num_segments,
-                        ub = [1] * num_segments,
-                        types = ["B"] * num_segments)
+                        lb = [0] * num_regions,
+                        ub = [1] * num_regions,
+                        types = ["B"] * num_regions)
 
-    for idx in range(num_segments):
+    for idx in range(num_regions):
         exclusions = [idx]
         p = all_parents[idx]
         while p != -1:
             exclusions.append(p)
             p = all_parents[p]
         if len(exclusions) > 1:
-            model.linear_constraints.add(lin_expr = [cplex.SparsePair(ind = [int(i) for i in excls],
-                                                                      val = [1] * len(excls))],
+            model.linear_constraints.add(lin_expr = [cplex.SparsePair(ind = [int(i) for i in exclusions],
+                                                                      val = [1] * len(exclusions))],
                                          senses = "L",
                                          rhs = [1])
     print "added exclusions"
