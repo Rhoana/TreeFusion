@@ -20,6 +20,8 @@ import h5py
 
 import cplex
 
+# import overlaps
+
 
 ##################################################
 # Parameters
@@ -60,7 +62,7 @@ def build_tree(im):
     weighter.add_values_pair32(lo.ravel(), hi.ravel(), im.astype(np.float32).ravel())
     low, hiw, edge_weights = weighter.get_weights_pair32()
 
-    max_regions = 2 * segs.max() + 1
+    max_regions = 2 * segs.max() + 1 #  number of regions is max() + 1
     counts = np.zeros((max_regions, max_regions), dtype=np.uint64)
     weights = np.zeros((max_regions, max_regions), dtype=float)
     counts[loc, hic] = edge_counts
@@ -79,7 +81,7 @@ def build_tree(im):
         w, lo, hi = heappop(heap)
         if (lo in parents) or (hi in parents):
             continue
-        print max_regions, next_region
+        print next_region, max_regions
         parents[lo] = next_region
         parents[hi] = next_region
         counts[next_region, :] = counts[lo, :] + counts[hi, :]
